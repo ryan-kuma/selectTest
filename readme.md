@@ -10,4 +10,4 @@
 
 ### 三、epoll
 - 相比于poll需要遍历所有文件描述符确定已到达的感兴趣事件，epoll可以对到达事件结构体数组epoll_events进行遍历处理,故epoll可以对事件分组处理，处理方式更灵活，而poll则以文件描述符为单位
-- epoll中epoll_wait(int epollfd,struct epoll_event *events, int maxevents, int timeout),通常对event做分组处理,而poll中poll(struct pollfd* fds, nfds_t nfds, int timeout)通常对fd进行分组处理
+- epoll中`epoll_wait(int epollfd,struct epoll_event *events, int maxevents, int timeout)`,通常对event做分组处理,而poll中`poll(struct pollfd* fds, nfds_t nfds, int timeout)`通常对fd进行分组处理
