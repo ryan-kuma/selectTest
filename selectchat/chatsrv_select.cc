@@ -96,15 +96,20 @@ int main(int argc, char* argv[])
 		for (int i = 0; i < user_counter; i++) 
 		{
 			FD_SET(fds[i], &read_fds);
-			FD_SET(fds[i], &exception_fds);
+
 			if (fds[i] > maxfd)
+			{
 				maxfd = fds[i];
+			}
+
 		}
-		ret = select(maxfd+1, &read_fds, &write_fds, &exception_fds, NULL);
+		ret = select(maxfd+1, &read_fds, NULL, &exception_fds, NULL);
 		if(ret < 0)
 		{
-				printf("errno is %d\n", errno);
+//				printf("errno is %d\n", errno);
+				perror(0);
 			printf("select failure\n");
+			printf("maxfd is %d\n", maxfd+1);
 			break;
 		}
 		if (FD_ISSET(listenfd, &read_fds))
@@ -150,16 +155,7 @@ int main(int argc, char* argv[])
 		}
 		for(int i = 0; i < user_counter; i++)
 		{
-			if (FD_ISSET(fds[i], &exception_fds))
-			{
-				users[fds[i]] = users[fds[user_counter]];
-				close(fds[i]);
-				fds[i] = fds[user_counter];
-				i--;
-				user_counter--;
-				printf("a client left\n");
-			}
-			else if (FD_ISSET(fds[i], &read_fds))
+			if (FD_ISSET(fds[i], &read_fds))
 			{
 				int connfd = fds[i];
 				memset(users[connfd].buf, 0, BUFFER_SIZE);
@@ -173,7 +169,7 @@ int main(int argc, char* argv[])
 //						users[fds[j]].write_buf = NULL;
 					i--;
 					user_counter--;
-					printf("a client left\n");
+					printf("read a client left\n");
 				}
 				else
 				{

@@ -91,7 +91,6 @@ int main(int argc, char* argv[])
 			{
 				printf("getline error\n");
 				free(buf);
-				close(sockfd);
 			}
 			send(sockfd, buf, n+1, 0);
 			free(buf);

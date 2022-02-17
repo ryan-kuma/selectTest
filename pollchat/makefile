@@ -1,5 +1,5 @@
 .PHONY: all clean
-BIN=chatsrv_epoll chatcli_epoll
+BIN=chatsrv_poll chatcli_poll
 all:$(BIN)
 %.o:%.cc
 clean:
