@@ -13,8 +13,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <string>
+#include "json.hpp"
 
-#define BUFFER_SIZE 64
+#define BUFFER_SIZE 1024
+
+using namespace std;
 
 int setnonblocking(int fd)
 {
@@ -22,6 +26,33 @@ int setnonblocking(int fd)
 	int new_option = old_option | O_NONBLOCK;
 	fcntl(fd, F_SETFL, new_option);
 	return old_option;
+}
+
+int readn(int fd, void *vptr, size_t n)
+{
+	size_t nleft = n;
+	size_t nread = 0;
+	unsigned char *ptr = (unsigned char*)vptr;
+
+	while(nleft > 0)
+	{
+		nread = read(fd, ptr, nleft);	
+		if(nread == -1)
+		{
+			if (EINTR == errno)	
+				nread = 0;
+			else
+				return -1;
+		}
+		else if (nread == 0)
+			break;
+
+		nleft -= nread;
+		ptr += nread;
+	}
+
+	return n-nleft;
+
 }
 
 int main(int argc, char* argv[])
@@ -77,9 +108,18 @@ int main(int argc, char* argv[])
 		}
 		else if (fds[1].revents & POLLIN)
 		{
+			int len = 0;
+			readn(fds[1].fd, &len, sizeof(len));
+
 			memset(read_buf, 0, sizeof(read_buf));
-			recv(fds[1].fd, read_buf, BUFFER_SIZE-1, 0);
-			printf("%s\n", read_buf);
+			readn(fds[1].fd, read_buf, len);
+			string str(read_buf);
+			nlohmann::json j = nlohmann::json::parse(str);
+			int type = j["type"];
+			string msg = j["msg"].get<string>();
+
+			printf("len = %d, type=%d\n", len, type);
+			printf("%s\n", msg.c_str());
 		}
 
 		if(fds[0].revents & POLLIN)

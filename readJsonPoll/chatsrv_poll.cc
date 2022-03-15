@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
+#include "json.hpp"
 
 #include <assert.h>
 #include <errno.h>
@@ -19,6 +20,8 @@
 #define USER_LIMIT 5
 #define BUFFER_SIZE 64
 #define FD_LIMIT 65535
+
+using namespace std;
 
 typedef struct client_data
 {
@@ -97,7 +100,6 @@ int main(int argc, char* argv[])
 		{
 			if ((fds[i].fd == listenfd) && (fds[i].revents & POLLIN))
 			{
-			printf("ok\n");
 				struct sockaddr_in client_addr;
 				socklen_t addrlen = sizeof(client_addr);
 				int connfd = accept(listenfd, (struct sockaddr*)&client_addr, &addrlen);
@@ -153,6 +155,14 @@ int main(int argc, char* argv[])
 				memset(users[connfd].buf, 0, BUFFER_SIZE);
 				ret = recv(connfd, users[connfd].buf, BUFFER_SIZE-1, 0);
 				printf("get %d bytes of client data %s from %d\n", ret, users[connfd].buf, connfd);
+				nlohmann::json jsdic;
+				string message(users[connfd].buf);
+				jsdic["type"] = 1;
+				jsdic["msg"] = message;
+				string msg = jsdic.dump();
+				memset(users[connfd].buf, 0, BUFFER_SIZE);
+				snprintf(users[connfd].buf, sizeof(msg.c_str()),"%s",msg.c_str());
+
 				if (ret < 0)
 				{
 					if(errno != EAGAIN)
@@ -189,7 +199,10 @@ int main(int argc, char* argv[])
 				{
 					continue;
 				}
-				ret = send(connfd, users[connfd].write_buf, strlen(users[connfd].write_buf), 0);
+
+				int len = strlen(users[connfd].write_buf);
+				ret = send(connfd, &len, 4, 0);
+				ret = send(connfd, users[connfd].write_buf, len, 0);
 				users[connfd].write_buf = NULL;
 				fds[i].events |= ~POLLOUT;
 				fds[i].events |= POLLIN;
