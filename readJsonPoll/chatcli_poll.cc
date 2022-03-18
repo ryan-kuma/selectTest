@@ -9,11 +9,12 @@
 #include <errno.h>
 #include <assert.h>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
 
 #include <string>
+#include <iostream>
 #include "json.hpp"
 
 #define BUFFER_SIZE 1024
@@ -112,7 +113,10 @@ int main(int argc, char* argv[])
 			readn(fds[1].fd, &len, sizeof(len));
 
 			memset(read_buf, 0, sizeof(read_buf));
-			readn(fds[1].fd, read_buf, len);
+			int ret = readn(fds[1].fd, read_buf, len);
+
+			printf("ret = %d\n",ret);
+			
 			string str(read_buf);
 			nlohmann::json j = nlohmann::json::parse(str);
 			int type = j["type"];
@@ -124,8 +128,10 @@ int main(int argc, char* argv[])
 
 		if(fds[0].revents & POLLIN)
 		{
-			ret = splice(0, NULL, pipefd[1], NULL, 32768, SPLICE_F_MORE | SPLICE_F_MOVE);
-			ret = splice(pipefd[0], NULL, sockfd, NULL, 32768, SPLICE_F_MORE | SPLICE_F_MOVE);
+			string str;
+			getline(cin, str);
+			int ret = send(sockfd,str.c_str(), str.size()+1, 0);
+
 		}
 	}
 

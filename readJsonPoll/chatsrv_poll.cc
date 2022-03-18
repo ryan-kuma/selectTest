@@ -17,18 +17,15 @@
 #include <assert.h>
 #include <errno.h>
 
-#define USER_LIMIT 5
-#define BUFFER_SIZE 64
+#include <iostream>
+
+#define USER_LIMIT 2
+#define BUFFER_SIZE 1024
 #define FD_LIMIT 65535
 
 using namespace std;
 
-typedef struct client_data
-{
-	sockaddr_in addr;
-	char *write_buf;
-	char buf[BUFFER_SIZE];
-}CLIENT_DATA;
+static char buf[USER_LIMIT][BUFFER_SIZE];
 
 int setnonblock(int fd)
 {
@@ -75,7 +72,6 @@ int main(int argc, char* argv[])
 	ret = listen(listenfd, 5);
 	assert(ret != -1);
 	
-	CLIENT_DATA *users = new CLIENT_DATA[FD_LIMIT];
 	pollfd fds[USER_LIMIT+1];
 	int user_counter = 0;
 	for (int i = 1; i <= USER_LIMIT; i++)
@@ -118,7 +114,6 @@ int main(int argc, char* argv[])
 				}
 
 				user_counter++;
-				users[connfd].addr = client_addr;
 				setnonblock(connfd);
 
 				fds[user_counter].fd = connfd;
@@ -141,7 +136,6 @@ int main(int argc, char* argv[])
 			}
 			else if(fds[i].revents & POLLRDHUP)
 			{
-				users[fds[i].fd] = users[fds[user_counter].fd];
 				close(fds[i].fd);
 				fds[i] = fds[user_counter];
 				i--;
@@ -152,23 +146,15 @@ int main(int argc, char* argv[])
 			else if(fds[i].revents & POLLIN)
 			{
 				int connfd = fds[i].fd;
-				memset(users[connfd].buf, 0, BUFFER_SIZE);
-				ret = recv(connfd, users[connfd].buf, BUFFER_SIZE-1, 0);
-				printf("get %d bytes of client data %s from %d\n", ret, users[connfd].buf, connfd);
-				nlohmann::json jsdic;
-				string message(users[connfd].buf);
-				jsdic["type"] = 1;
-				jsdic["msg"] = message;
-				string msg = jsdic.dump();
-				memset(users[connfd].buf, 0, BUFFER_SIZE);
-				snprintf(users[connfd].buf, sizeof(msg.c_str()),"%s",msg.c_str());
+				char recvBuf[BUFFER_SIZE] = {0};
+				ret = recv(connfd, recvBuf, BUFFER_SIZE-1, 0);
+				printf("get %d bytes of client data %s from %d\n", ret, recvBuf, connfd);
 
 				if (ret < 0)
 				{
 					if(errno != EAGAIN)
 					{
 						close(connfd);
-						users[fds[i].fd] = users[fds[user_counter].fd];
 						fds[i] = fds[user_counter];
 						i--;
 						user_counter--;
@@ -179,38 +165,32 @@ int main(int argc, char* argv[])
 				}
 				else
 				{
-					for (int j = 1; j <= user_counter; j++)
-					{
-						if(fds[j].fd == connfd)
-						{
-							continue;
-						}
+					nlohmann::json jsdic;
+					string message(recvBuf);
+					jsdic["type"] = 1;
+					jsdic["msg"] = message;
+					string msg = jsdic.dump();
 
-						fds[j].events |= ~POLLIN;
-						fds[j].events |= POLLOUT;
-						users[fds[j].fd].write_buf = users[connfd].buf;
-					}
+					memset(buf[i], 0, BUFFER_SIZE);
+					snprintf(buf[i], msg.size()+1,"%s",msg.c_str());
+
+					fds[i].events |= ~POLLIN;
+					fds[i].events |= POLLOUT;
 				}
 			}
 			else if(fds[i].revents & POLLOUT)
 			{
 				int connfd = fds[i].fd;
-				if(!users[connfd].write_buf)
-				{
-					continue;
-				}
 
-				int len = strlen(users[connfd].write_buf);
+				int len = strlen(buf[i]);
 				ret = send(connfd, &len, 4, 0);
-				ret = send(connfd, users[connfd].write_buf, len, 0);
-				users[connfd].write_buf = NULL;
-				fds[i].events |= ~POLLOUT;
-				fds[i].events |= POLLIN;
+				ret = send(connfd, buf[i], len, 0);
+//				fds[i].events |= ~POLLOUT;
+				fds[i].events = POLLIN|POLLRDHUP|POLLERR;
 			}
 		}
 	}
 
-	delete[] users;
 	close(listenfd);
 	return 0; 
 }
