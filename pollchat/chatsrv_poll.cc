@@ -176,7 +176,6 @@ int main(int argc, char* argv[])
 							continue;
 						}
 
-						fds[j].events |= ~POLLIN;
 						fds[j].events |= POLLOUT;
 						users[fds[j].fd].write_buf = users[connfd].buf;
 					}
@@ -191,8 +190,8 @@ int main(int argc, char* argv[])
 				}
 				ret = send(connfd, users[connfd].write_buf, strlen(users[connfd].write_buf), 0);
 				users[connfd].write_buf = NULL;
-				fds[i].events |= ~POLLOUT;
-				fds[i].events |= POLLIN;
+
+				fds[i].events |= POLLIN|POLLRDHUP|POLLERR;
 			}
 		}
 	}
